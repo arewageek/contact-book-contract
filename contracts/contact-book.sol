@@ -1,34 +1,69 @@
-// SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.28;
+//  SPDX-License-Identifier: MIT
 
-// Uncomment this line to use console.log
-// import "hardhat/console.sol";
+pragma solidity ^0.8.24;
 
-contract Lock {
-    uint public unlockTime;
-    address payable public owner;
-
-    event Withdrawal(uint amount, uint when);
-
-    constructor(uint _unlockTime) payable {
-        require(
-            block.timestamp < _unlockTime,
-            "Unlock time should be in the future"
-        );
-
-        unlockTime = _unlockTime;
-        owner = payable(msg.sender);
+contract ContactBook {
+    struct Contact {
+        string name;
+        string phone;
+        string email;
+        string location;
     }
 
-    function withdraw() public {
-        // Uncomment this line, and the import of "hardhat/console.sol", to print a log in your terminal
-        // console.log("Unlock time is %o and block timestamp is %o", unlockTime, block.timestamp);
+    mapping(address => mapping(address => Contact)) private contacts;
 
-        require(block.timestamp >= unlockTime, "You can't withdraw yet");
-        require(msg.sender == owner, "You aren't the owner");
+    event ContactAdded(address indexed user, address indexed walletAddress, string name, string phone, string email, string location);
+    event ContactUpdated(address indexed user, address indexed walletAddress, string name, string phone, string email, string location);
+    event ContactRemoved(address indexed user, address indexed walletAddress);
 
-        emit Withdrawal(address(this).balance, block.timestamp);
+    error ContactNotFound(address walletAddress);
 
-        owner.transfer(address(this).balance);
+    modifier contactExists(address _wallet) {
+        if(bytes(contacts[msg.sender][_wallet].name).length == 0) revert ContactNotFound(_wallet);
+        _;
+    }
+
+    function addContact(
+        address _wallet,
+        string calldata _name,
+        string calldata _phone,
+        string calldata _email,
+        string calldata _location
+    ) external {
+        contacts[msg.sender][_wallet] = Contact({
+            name: _name,
+            phone: _phone,
+            email: _email,
+            location: _location
+        });
+
+        emit ContactAdded(msg.sender, _wallet, _name, _phone, _email, _location);
+    }
+
+    function updateContaact(
+        address _wallet,
+        string calldata _name,
+        string calldata _phone,
+        string calldata _email,
+        string calldata _location
+    ) external contactExists(_wallet){
+        contacts[msg.sender][_wallet] = Contact({
+            name: _name,
+            phone: _phone,
+            email: _email,
+            location: _location
+        });
+
+        emit ContactUpdated(msg.sender, _wallet, _name, _phone, _email, _location);
+    }
+
+    function removeContact (address _wallet) external contactExists(_wallet) {
+        delete contacts[msg.sender][_wallet];
+
+        emit ContactRemoved(msg.sender, _wallet);
+    }
+
+    function getContact(address _wallet) external view contactExists(_wallet) returns (Contact memory) {
+        return contacts[msg.sender][_wallet];
     }
 }
